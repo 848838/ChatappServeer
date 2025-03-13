@@ -36,7 +36,7 @@ app.use(express.json());
 app.use(cors());
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017', {
+mongoose.connect('mongodb+srv://jha16233:4O2skn1AGnGMWQBI@cluster0.fq9t064.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 }).then(() => {
