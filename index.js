@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const express = require('express');
 const bodyParser = require('body-parser');
-const bcrypt = require('bcrypt');
+
 
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
@@ -48,14 +48,11 @@ app.post('/signup', async (req, res) => {
             return res.status(400).json({ message: "User already exists" });
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Create a new user
+        // Create a new user without hashing the password
         const newUser = new User({
             name,
             email,
-            password: hashedPassword,
+            password,  // Storing password as plain text (not recommended)
             profileImage: profileImage || '', // Default empty string if no image
         });
 
@@ -72,6 +69,7 @@ app.post('/signup', async (req, res) => {
         res.status(500).json({ message: "Signup failed", error: error.message });
     }
 });
+
 // Login route
 app.post('/login', async (req, res) => {
     try {
