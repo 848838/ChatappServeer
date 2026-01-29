@@ -36,13 +36,16 @@ app.use(express.json());
 app.use(cors());
 
 // Connect to MongoDB
-mongoose.connect('mongodb+srv://jha16233:4O2skn1AGnGMWQBI@cluster0.fq9t064.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
-  .then(() => {
-    console.log("Connected to backend server...");
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-  });
+mongoose.connect('mongodb+srv://jha16233:4O2skn1AGnGMWQBI@cluster0.fq9t064.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+
+}).then(() => {
+    console.log("connected to backend server...");
+}).catch((err) => {
+    console.log('error found', err);
+})
+
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
