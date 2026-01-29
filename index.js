@@ -9,7 +9,7 @@ const cors = require("cors");
 const User = require('./Modals/User');
 const { Server } = require('socket.io');  // Importing Socket.IO Server
 const http = require('http');
-const Message = require('./Modals_uiGMS-Server/Message');
+const Message = require('./Modals/Message');
 
 const multer = require('multer');
 const path = require('path');
