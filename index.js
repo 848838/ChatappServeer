@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -5,10 +6,10 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 
-const User = require('./Modals/User');
+const User = require('./Modals_uiGMS-Server/User');
 const { Server } = require('socket.io');  // Importing Socket.IO Server
 const http = require('http');
-const Message = require('./Modals/Message');
+const Message = require('./Modals_uiGMS-Server/Message');
 
 const multer = require('multer');
 const path = require('path');
@@ -21,7 +22,7 @@ const JWT_SECRET = "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi782
 
 // Create HTTP server using the app
 const server = http.createServer(app);
-
+const uploadDir = './uploads';
 
 // Attach Socket.IO to the server
 const io = new Server(server, {
@@ -43,7 +44,6 @@ mongoose.connect(process.env.MONGO_URI)
   .catch((err) => {
     console.error("MongoDB error:", err);
   });
-
 const uploadDir = path.join('/tmp', 'uploads');
 
 // create folder only if not exists
@@ -74,37 +74,6 @@ const upload = multer({
 });
 
 
-app.post('/signup', async (req, res) => {
-    try {
-        const { name, email, password, profileImage } = req.body;
-
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "User already exists" });
-        }
-
-        // Create a new user without hashing the password
-        const newUser = new User({
-            name,
-            email,
-            password,  // Storing password as plain text (not recommended)
-            profileImage: profileImage || '', // Default empty string if no image
-        });
-
-        await newUser.save();
-
-        // Generate JWT token
-        const token = jwt.sign(
-            { id: newUser._id, email: newUser.email, name: newUser.name, profileImage: newUser.profileImage },
-            JWT_SECRET
-        );
-
-        res.status(201).json({ message: "User registered successfully", token, user: newUser });
-    } catch (error) {
-        res.status(500).json({ message: "Signup failed", error: error.message });
-    }
-});
 // Login route
 app.post('/login', async (req, res) => {
     try {
@@ -122,6 +91,52 @@ app.post('/login', async (req, res) => {
         res.status(200).json({ token, user: { id: user._id, email: user.email, name: user.name, profileImage: user.profileImage } });
     } catch (error) {
         return res.status(500).json({ error: "Login failed" });
+    }
+});
+app.post('/signup', async (req, res) => {
+    try {
+        const { name, email, password, profileImage } = req.body;
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(409).json({ error: 'User already exists' });
+        }
+
+        // Create new user
+        const newUser = new User({
+            name,
+            email,
+            password, // ⚠️ You should hash this in real apps
+            profileImage
+        });
+
+        await newUser.save();
+
+        // Create token same as login
+        const token = jwt.sign(
+            { 
+                id: newUser._id, 
+                email: newUser.email, 
+                name: newUser.name, 
+                profileImage: newUser.profileImage 
+            },
+            JWT_SECRET
+        );
+
+        res.status(201).json({
+            token,
+            user: {
+                id: newUser._id,
+                email: newUser.email,
+                name: newUser.name,
+                profileImage: newUser.profileImage
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: "Signup failed" });
     }
 });
 
@@ -144,6 +159,52 @@ app.post('/userdata', async (req, res) => {
 //         message,
 //     });
 // };
+// Get recent chat users (sorted by last message time)
+app.get("/recent-chats", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(400).json({ message: "No token provided" });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+
+    const messages = await Message.find({
+      $or: [{ senderId: userId }, { receiverId: userId }],
+    }).sort({ timestamp: -1 });
+
+    const userMap = new Map();
+
+    for (let msg of messages) {
+      const otherUserId =
+        msg.senderId.toString() === userId
+          ? msg.receiverId.toString()
+          : msg.senderId.toString();
+
+      if (!userMap.has(otherUserId)) {
+        const user = await User.findById(otherUserId).select(
+          "name profileImage profession hobby"
+        );
+
+        if (user) {
+          userMap.set(otherUserId, {
+            _id: user._id,
+            name: user.name,
+            profileImage: user.profileImage,
+            profession: user.profession,
+            hobby: user.hobby,
+            lastMessage: msg.message,
+            lastMessageTime: msg.timestamp,
+          });
+        }
+      }
+    }
+
+    res.json({ status: "ok", users: Array.from(userMap.values()) });
+  } catch (e) {
+    console.error("recent chats error:", e);
+    res.status(500).json({ status: "error", message: e.message });
+  }
+});
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -311,14 +372,10 @@ app.post('/Stories', upload.single('stories'), async (req, res) => {
             user.stories = [];
         }
 
-        user.stories.push({
-            uri: storiesUri,
-            timestamp: new Date(), // Add timestamp for sorting
-        }); // Append the new story
+        user.stories.push(storiesUri); // Append the new story
         await user.save();
 
-        // Emit the updated user stories to all clients
-        io.emit('newStory', { userId, stories: user.stories });
+        io.emit('stories', { userId, stories: user.stories });
 
         res.status(200).json({ status: 'ok', stories: user.stories });
     } catch (error) {
@@ -326,7 +383,6 @@ app.post('/Stories', upload.single('stories'), async (req, res) => {
         res.status(500).json({ status: 'error', message: 'Failed to save stories', error: error.message });
     }
 });
-
 
 app.get('/stories', async (req, res) => {
     try {
@@ -347,31 +403,6 @@ app.get('/stories', async (req, res) => {
     } catch (error) {
         console.error('Error fetching stories:', error);
         res.status(500).json({ status: 'error', message: 'Failed to fetch stories', error: error.message });
-    }
-});
-app.get('/messages/last', async (req, res) => {
-    const { receiverId } = req.query;
-    const senderId = req.userId; // Assuming you're extracting the senderId from the JWT
-
-    try {
-        const lastMessage = await Message.findOne({
-            $or: [
-                { senderId, receiverId },
-                { senderId: receiverId, receiverId: senderId }
-            ]
-        })
-        .sort({ createdAt: -1 }) // Ensure sorting by latest
-        .exec();
-        
-
-        if (lastMessage.length > 0) {
-            res.json({ lastMessage: lastMessage[0] });
-        } else {
-            res.json({ lastMessage: null });
-        }
-    } catch (error) {
-        console.error('Error fetching last message:', error);
-        res.status(500).json({ message: 'Error fetching last message' });
     }
 });
 
@@ -473,7 +504,7 @@ app.put('/updateprofile', upload.single('profileImage'), async (req, res) => {
 
         // Handle profile image
         if (req.file) {
-            updateData.profileImage = `http://localhost:5000/uploads/${req.file.filename}`;
+            updateData.profileImage = `https://chatapp-serveer.vercel.app/uploads/${req.file.filename}`;
         }
 
         // Update the user in the database
@@ -494,32 +525,7 @@ app.put('/updateprofile', upload.single('profileImage'), async (req, res) => {
         res.status(500).json({ message: 'Error updating profile', error: error.message });
     }
 });
-app.post('/auth/google', async (req, res) => {
-    const { token } = req.body;
 
-    try {
-        const ticket = await client.verifyIdToken({
-            idToken: token,
-            audience: "767766424863-b8horf7o2iaq7bum2chu8tqg2am1419j.apps.googleusercontent.com",
-        });
-        
-
-        const { email, name, picture } = ticket.getPayload();
-
-        let user = await User.findOne({ email });
-
-        if (!user) {
-            user = new User({ email, name, profileImage: picture });
-            await user.save();
-        }
-
-        const jwtToken = jwt.sign({ id: user._id, email: user.email, name: user.name, profileImage: user.profileImage }, JWT_SECRET);
-
-        res.status(200).json({ token: jwtToken, user });
-    } catch (error) {
-        res.status(401).json({ error: "Invalid Google Token" });
-    }
-});
 
 //fetch other users in server
 app.get('/users', async (req, res) => {
