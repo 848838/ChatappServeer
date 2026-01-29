@@ -22,7 +22,7 @@ const JWT_SECRET = "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi782
 
 // Create HTTP server using the app
 const server = http.createServer(app);
-const uploadDir = './uploads';
+const uploadDir = path.join('/tmp', 'uploads');
 
 // Attach Socket.IO to the server
 const io = new Server(server, {
@@ -44,7 +44,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch((err) => {
     console.error("MongoDB error:", err);
   });
-const uploadDir = path.join('/tmp', 'uploads');
+
 
 // create folder only if not exists
 if (!fs.existsSync(uploadDir)) {
