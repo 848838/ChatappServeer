@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 
-const User = require('./Modals_uiGMS-Server/User');
+const User = require('./Modals/User');
 const { Server } = require('socket.io');  // Importing Socket.IO Server
 const http = require('http');
 const Message = require('./Modals_uiGMS-Server/Message');
