@@ -45,36 +45,6 @@ mongoose.connect(process.env.MONGO_URI)
   });
 
 
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-}
-// update the proifle 
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        cb(null, `${uniqueSuffix}_${file.originalname}`);
-    }
-    
-});
-
-const upload = multer({
-    storage,
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-        if (!allowedTypes.includes(file.mimetype)) {
-            return cb(new Error('Only JPEG, PNG, or GIF files are allowed'), false);
-        }
-        cb(null, true);
-    },
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-});
-
-
-app.use('/uploads', express.static('uploads'));
 
 app.post('/signup', async (req, res) => {
     try {
