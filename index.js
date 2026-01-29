@@ -21,7 +21,7 @@ const JWT_SECRET = "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi782
 
 // Create HTTP server using the app
 const server = http.createServer(app);
-const uploadDir = './uploads';
+
 
 // Attach Socket.IO to the server
 const io = new Server(server, {
